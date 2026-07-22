@@ -44,10 +44,6 @@ jobs:
             ghcr.io/petrleocompel/docker-images-flutter:${{ steps.version.outputs.version }}
             ghcr.io/petrleocompel/docker-images-flutter:latest
 
-      - name: Make package public
-        run: gh api -X PATCH /user/packages/container/docker-images-flutter -f visibility=public
-        env:
-          GH_TOKEN: ${{ secrets.GHCR_PAT }}
 
       - name: Create GitHub Release
         run: |
