@@ -19,8 +19,11 @@ RUN curl -sL -o /tmp/cmdline-tools.zip "https://dl.google.com/android/repository
     && mv ${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest \
     && rm /tmp/cmdline-tools.zip
 
-RUN yes | sdkmanager --licenses \
-    && yes | sdkmanager \
+# sdkmanager is deprecated in favor of the `android` CLI (bundled in cmdline-tools), used here
+# for package installation. --sdk must be passed explicitly: unlike sdkmanager, this tool ignores
+# ANDROID_SDK_ROOT and otherwise defaults to installing into ~/Android/Sdk.
+RUN yes | android --sdk=${ANDROID_SDK_ROOT} sdk install \
+      "platform-tools" \
       "platforms;android-33" \
       "platforms;android-34" \
       "platforms;android-35" \
@@ -31,6 +34,12 @@ RUN yes | sdkmanager --licenses \
       "build-tools;37.0.0" \
       "ndk;28.2.13676358" \
       "cmake;3.22.1"
+
+# The `android` CLI has no license-acceptance mechanism at all (confirmed against Google's own
+# docs) — its one-time Terms-of-Service prompt only covers the android-sdk-license, not the
+# per-component licenses (preview, arm-dbt, googletv, googlexr, gdk, mips) that Gradle/Flutter
+# builds actually check for. sdkmanager --licenses is still required for those.
+RUN yes | sdkmanager --licenses
 
 RUN git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git ${FLUTTER_HOME} \
     && flutter doctor \
