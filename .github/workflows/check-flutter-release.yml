@@ -1,0 +1,45 @@
+name: Check for new Flutter release
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Determine latest stable Flutter version
+        id: flutter
+        run: |
+          set -euo pipefail
+          MANIFEST=$(curl -sSL https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json)
+          STABLE_HASH=$(echo "$MANIFEST" | jq -r '.current_release.stable')
+          VERSION=$(echo "$MANIFEST" | jq -r --arg hash "$STABLE_HASH" '.releases[] | select(.hash == $hash) | .version')
+          if [ -z "$VERSION" ]; then
+            echo "Could not resolve stable version from manifest" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compare against latest tag and push new tag if newer
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.flutter.outputs.version }}"
+          LAST_TAG=$(git tag --sort=-v:refname | head -1 || true)
+          if [ "$LAST_TAG" = "$VERSION" ]; then
+            echo "Already have tag $VERSION, nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$VERSION"
+          git push origin "$VERSION"
